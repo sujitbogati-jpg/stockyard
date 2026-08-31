@@ -9,11 +9,9 @@ export default function Login() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    const expected = process.env.NEXT_PUBLIC_APP_PASSWORD;
-    if (!expected) {
-      setError("App password isn't configured yet — set NEXT_PUBLIC_APP_PASSWORD in your hosting settings.");
-      return;
-    }
+    // Falls back to "1234" if NEXT_PUBLIC_APP_PASSWORD is not set in hosting settings
+    const expected = process.env.NEXT_PUBLIC_APP_PASSWORD || "1234";
+    
     if (!name.trim()) {
       setError("Enter your name — it's attached to what you post, so the team knows who did what.");
       return;
