@@ -23,20 +23,37 @@ function bucketFor(days) {
 export default function BBDReport({ rows }) {
   const [activeBucket, setActiveBucket] = useState("all");
 
+  // 1. Prepare data and force recalculations of values directly in active state memory
   const atRisk = useMemo(() => {
     return rows
       .filter((r) => r.quantity > 0 && r.expiry_date)
-      .map((r) => ({ ...r, daysLeft: daysUntil(r.expiry_date), bucket: bucketFor(daysUntil(r.expiry_date)) }))
+      .map((r) => {
+        const qty = Number(r.quantity) || 0;
+        const price = Number(r.unit_price) || 0;
+        
+        // If the database total value is missing or 0, calculate it instantly in memory
+        const calculatedValue = (r.total_stock_value && Number(r.total_stock_value) > 0)
+          ? Number(r.total_stock_value)
+          : (qty * price);
+
+        return { 
+          ...r, 
+          computedTotalValue: calculatedValue,
+          daysLeft: daysUntil(r.expiry_date), 
+          bucket: bucketFor(daysUntil(r.expiry_date)) 
+        };
+      })
       .filter((r) => r.bucket)
       .sort((a, b) => a.daysLeft - b.daysLeft);
   }, [rows]);
 
+  // 2. Summary buckets at the top will now show real dollar values instead of $0
   const counts = useMemo(() => {
     const c = {};
     for (const b of BUCKETS) c[b.key] = { count: 0, value: 0 };
     for (const r of atRisk) {
       c[r.bucket.key].count += 1;
-      c[r.bucket.key].value += Number(r.total_stock_value || 0);
+      c[r.bucket.key].value += r.computedTotalValue;
     }
     return c;
   }, [atRisk]);
@@ -50,11 +67,10 @@ export default function BBDReport({ rows }) {
       Batch: r.batch, 
       Zone: zoneName(r.storage_location),
       "Bin Location": r.bin_location, 
-      // Formats the exported Excel data to 3 decimal places
       Quantity: r.quantity != null ? Number(Number(r.quantity).toFixed(3)) : 0, 
       Unit: r.unit,
       "Unit Price USD": r.unit_price, 
-      "Total Value USD": r.total_stock_value,
+      "Total Value USD": r.computedTotalValue,
       "Expiry Date": r.expiry_date, 
       "Days Left": r.daysLeft, 
       Risk: r.bucket.label,
@@ -76,7 +92,9 @@ export default function BBDReport({ rows }) {
           >
             <div className="text-[12px] font-semibold" style={{ color: b.color }}>{b.label}</div>
             <div className="text-xl font-bold mt-1" style={{ fontFamily: "'IBM Plex Mono', monospace", color: "#23241F" }}>{counts[b.key].count}</div>
-            <div className="text-[11px]" style={{ color: "#8A8A7E" }}>${counts[b.key].value.toLocaleString(undefined, { maximumFractionDigits: 0 })} at risk</div>
+            <div className="text-[11px]" style={{ color: "#8A8A7E" }}>
+              ${counts[b.key].value.toLocaleString(undefined, { maximumFractionDigits: 0 })} at risk
+            </div>
           </button>
         ))}
       </div>
@@ -105,11 +123,13 @@ export default function BBDReport({ rows }) {
                 <td className="px-3 py-2 text-[13px]" style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{r.batch}</td>
                 <td className="px-3 py-2 text-[13px]">{zoneName(r.storage_location)}</td>
                 <td className="px-3 py-2 text-[13px]">{r.bin_location || "—"}</td>
-                {/* Fixed column: parses the raw quantity string and displays exactly 3 decimal points */}
                 <td className="px-3 py-2 font-semibold" style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
                   {r.quantity != null ? Number(r.quantity).toFixed(3) : "0.000"} {r.unit}
                 </td>
-                <td className="px-3 py-2" style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{r.total_stock_value != null ? Number(r.total_stock_value).toFixed(2) : "—"}</td>
+                {/* 🛠️ FILED FIXED: Bypasses the broken database column and renders the calculated memory value */}
+                <td className="px-3 py-2 font-semibold" style={{ fontFamily: "'IBM Plex Mono', monospace", color: r.computedTotalValue > 0 ? "#23241F" : "#8A8A7E" }}>
+                  {r.computedTotalValue.toFixed(2)}
+                </td>
                 <td className="px-3 py-2"><ExpiryPill expiry={r.expiry_date} /></td>
                 <td className="px-3 py-2"><Pill color={r.bucket.color} bg={r.bucket.bg}>{r.bucket.label}</Pill></td>
               </tr>
