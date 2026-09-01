@@ -83,7 +83,7 @@ export default function LineItemGrid({ type, items, rows, onPost, showToastErr }
       } else {
         const row = rows.find((r) => r.id === l.rowId);
         if (!row) { errs.push(`Line ${idx + 1}: no batch selected.`); return; }
-        if (q > row.quantity) { errs.push(`Line ${idx + 1}: only ${row.quantity} available in batch ${row.batch}.`); return; }
+        if (q > row.quantity) { errs.push(`Line ${idx + 1}: only ${Number(row.quantity).toFixed(2)} available in batch ${row.batch}.`); return; }
         posted.push({ rowId: l.rowId, code: l.code, toProject: type === "transfer" ? toProject : null, qty: q, note: l.note || docNote });
       }
     });
@@ -170,10 +170,10 @@ export default function LineItemGrid({ type, items, rows, onPost, showToastErr }
                         <td className="px-3 py-1.5">
                           <select className="rounded border px-2 py-1.5 text-[13px]" style={{ ...selectStyle, minWidth: 150 }} value={l.rowId} onChange={(e) => updateLine(l.__lid, { rowId: e.target.value })} disabled={!l.code}>
                             {avail.length === 0 && <option value="">No stock</option>}
-                            {avail.map((r) => <option key={r.id} value={r.id}>{r.batch} · {zoneName(r.storage_location)} · {r.quantity} {r.unit}</option>)}
+                            {avail.map((r) => <option key={r.id} value={r.id}>{r.batch} · {zoneName(r.storage_location)} · {Number(r.quantity).toFixed(2)} {r.unit}</option>)}
                           </select>
                         </td>
-                        <td className="px-3 py-1.5" style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{selectedRow ? `${selectedRow.quantity} ${selectedRow.unit}` : "—"}</td>
+                        <td className="px-3 py-1.5" style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{selectedRow ? `${Number(selectedRow.quantity).toFixed(2)} ${selectedRow.unit}` : "—"}</td>
                         <td className="px-3 py-1.5"><input type="number" min="0" step="any" className="w-20 rounded border px-2 py-1.5 text-[13px]" style={{ ...selectStyle, fontFamily: "'IBM Plex Mono', monospace" }} value={l.qty} onChange={(e) => updateLine(l.__lid, { qty: e.target.value })} placeholder="0" /></td>
                         <td className="px-3 py-1.5" style={{ color: "#8A8A7E" }}>{item?.Unit || "—"}</td>
                         <td className="px-3 py-1.5"><ExpiryPill expiry={selectedRow?.expiry_date} /></td>
