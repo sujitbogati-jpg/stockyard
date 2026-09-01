@@ -19,10 +19,12 @@ export default function Dashboard({ rows, movements, itemSettings = [] }) {
   const stockByZone = {};
   for (const r of rows) stockByZone[r.storage_location] = (stockByZone[r.storage_location] || 0) + Number(r.quantity || 0);
 
+  // 1. Calculate ALL expiring items without any truncation limits
   const nearExpiry = rows
     .filter((r) => r.quantity > 0 && r.expiry_date && daysUntil(r.expiry_date) <= 14)
     .sort((a, b) => new Date(a.expiry_date) - new Date(b.expiry_date));
 
+  // 2. Calculate ALL items dropping under custom safety margins
   const thresholdBySku = new Map(itemSettings.filter((s) => s.reorder_threshold != null).map((s) => [s.sku, Number(s.reorder_threshold)]));
   const totalBySku = new Map();
   for (const r of rows) {
@@ -43,20 +45,26 @@ export default function Dashboard({ rows, movements, itemSettings = [] }) {
     <div>
       <PageHeader title="Dashboard" subtitle="Central Warehouse zones — the only stock this app tracks" />
 
+      {/* 🔴 CRITICAL THRESHOLD ALERT BOX */}
       {lowStock.length > 0 && (
         <div className="rounded-lg p-4 mb-6" style={{ backgroundColor: "#F5EAE5", border: "1px solid #E3B7A6" }}>
-          <div className="flex items-center gap-2 font-semibold text-sm mb-2" style={{ color: "#8A3E24" }}><TriangleAlert size={16} /> Below reorder threshold</div>
-          <div className="grid grid-cols-2 gap-x-6 gap-y-1">
-            {lowStock.slice(0, 10).map((it) => (
-              <div key={it.sku} className="text-sm flex justify-between" style={{ color: "#8A3E24" }}>
-                <span className="truncate">{it.desc}</span>
-                <span style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{it.total} / {it.threshold} {it.unit}</span>
+          <div className="flex items-center gap-2 font-semibold text-sm mb-2" style={{ color: "#8A3E24" }}>
+            <TriangleAlert size={16} /> 
+            Below reorder threshold ({lowStock.length} items)
+          </div>
+          {/* Scrollable grid to handle thousands of items seamlessly */}
+          <div className="grid grid-cols-2 gap-x-6 gap-y-2 max-h-48 overflow-y-auto pr-2">
+            {lowStock.map((it) => (
+              <div key={it.sku} className="text-sm flex justify-between py-0.5 border-b border-[#F0DDD5] last:border-0" style={{ color: "#8A3E24" }}>
+                <span className="truncate pr-4"><strong>{it.desc}</strong></span>
+                <span className="shrink-0" style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{it.total} / {it.threshold} {it.unit}</span>
               </div>
             ))}
           </div>
         </div>
       )}
 
+      {/* STORAGE LOCATIONS MAP GRID OVERVIEW */}
       <div className="grid grid-cols-5 gap-3 mb-6">
         {WAREHOUSE_ZONE_CODES.map((z) => (
           <LocCard key={z} label={zoneName(z)} sub={`Storage Location ${z}`} qty={stockByZone[z] || 0} />
@@ -73,20 +81,26 @@ export default function Dashboard({ rows, movements, itemSettings = [] }) {
         })}
       </div>
 
+      {/* ⏳ EXPIRY RISK WARNING ALERT BOX */}
       {nearExpiry.length > 0 && (
         <div className="rounded-lg p-4 mb-6" style={{ backgroundColor: "#FBF1DF", border: "1px solid #EFD7A0" }}>
-          <div className="flex items-center gap-2 font-semibold text-sm mb-2" style={{ color: "#7A5417" }}><CalendarClock size={16} /> Expiring within 14 days</div>
-          <div className="grid grid-cols-2 gap-x-6 gap-y-1">
-            {nearExpiry.slice(0, 10).map((r) => (
-              <div key={r.id} className="text-sm flex justify-between" style={{ color: "#7A5417" }}>
-                <span className="truncate">{r.description} <span style={{ opacity: 0.7 }}>({r.batch})</span></span>
-                <span style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{fmtDate(r.expiry_date)}</span>
+          <div className="flex items-center gap-2 font-semibold text-sm mb-2" style={{ color: "#7A5417" }}>
+            <CalendarClock size={16} /> 
+            Expiring within 14 days ({nearExpiry.length} batches)
+          </div>
+          {/* Scrollable grid setup for bulk batch display management */}
+          <div className="grid grid-cols-2 gap-x-6 gap-y-2 max-h-48 overflow-y-auto pr-2">
+            {nearExpiry.map((r) => (
+              <div key={r.id} className="text-sm flex justify-between py-0.5 border-b border-[#F5E6CD] last:border-0" style={{ color: "#7A5417" }}>
+                <span className="truncate pr-4"><strong>{r.description}</strong> <span style={{ opacity: 0.7 }}>({r.batch})</span></span>
+                <span className="shrink-0" style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{fmtDate(r.expiry_date)}</span>
               </div>
             ))}
           </div>
         </div>
       )}
 
+      {/* CHRONOLOGICAL HISTORICAL LOG ENTRIES TRAIL LIST */}
       <div className="rounded-lg overflow-hidden" style={{ border: "1px solid #E4E1D6" }}>
         <div className="px-4 py-3 font-semibold text-sm" style={{ backgroundColor: "#EFECE2" }}>Recent Activity</div>
         <div className="divide-y" style={{ borderColor: "#E4E1D6" }}>
