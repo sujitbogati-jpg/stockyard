@@ -45,10 +45,19 @@ export default function BBDReport({ rows }) {
 
   const handleExport = () => {
     const data = filtered.map((r) => ({
-      Code: r.code, Description: r.description, Batch: r.batch, Zone: zoneName(r.storage_location),
-      "Bin Location": r.bin_location, Quantity: r.quantity, Unit: r.unit,
-      "Unit Price USD": r.unit_price, "Total Value USD": r.total_stock_value,
-      "Expiry Date": r.expiry_date, "Days Left": r.daysLeft, Risk: r.bucket.label,
+      Code: r.code, 
+      Description: r.description, 
+      Batch: r.batch, 
+      Zone: zoneName(r.storage_location),
+      "Bin Location": r.bin_location, 
+      // Formats the exported Excel data to 3 decimal places
+      Quantity: r.quantity != null ? Number(Number(r.quantity).toFixed(3)) : 0, 
+      Unit: r.unit,
+      "Unit Price USD": r.unit_price, 
+      "Total Value USD": r.total_stock_value,
+      "Expiry Date": r.expiry_date, 
+      "Days Left": r.daysLeft, 
+      Risk: r.bucket.label,
     }));
     exportToExcel(data, `bbd-risk-report-${new Date().toISOString().slice(0, 10)}.xlsx`, "BBD Risk");
   };
@@ -96,7 +105,10 @@ export default function BBDReport({ rows }) {
                 <td className="px-3 py-2 text-[13px]" style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{r.batch}</td>
                 <td className="px-3 py-2 text-[13px]">{zoneName(r.storage_location)}</td>
                 <td className="px-3 py-2 text-[13px]">{r.bin_location || "—"}</td>
-                <td className="px-3 py-2 font-semibold" style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{r.quantity} {r.unit}</td>
+                {/* Fixed column: parses the raw quantity string and displays exactly 3 decimal points */}
+                <td className="px-3 py-2 font-semibold" style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
+                  {r.quantity != null ? Number(r.quantity).toFixed(3) : "0.000"} {r.unit}
+                </td>
                 <td className="px-3 py-2" style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{r.total_stock_value != null ? Number(r.total_stock_value).toFixed(2) : "—"}</td>
                 <td className="px-3 py-2"><ExpiryPill expiry={r.expiry_date} /></td>
                 <td className="px-3 py-2"><Pill color={r.bucket.color} bg={r.bucket.bg}>{r.bucket.label}</Pill></td>
