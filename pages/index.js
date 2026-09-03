@@ -131,7 +131,6 @@ export default function Home() {
         created_by: getUserName(),
       });
 
-      // Optimistic local state update
       setRows((prev) => prev.map((r) => r.id === existing.id ? { ...r, quantity: newQty, total_stock_value: round2(newQty * (r.unit_price || 0)) } : r));
     } else {
       const proto = itemMaster.find((m) => m.code === code) || rows.find((r) => r.code === code);
@@ -206,9 +205,151 @@ export default function Home() {
     showToast("Entry deleted and stock reversed");
   }
 
+  // ---------- CORRECTED createDraftOp (fixed syntax) ----------
   async function createDraftOp(type, lines, toProject, forecastId) {
     const { data: plData } = await supabase.rpc("next_pl_number");
     const plNumber = plData || `PL/${pendingOps.length + 1}`;
+    
     const pickLines = lines.map((l) => {
       const row = rows.find((r) => r.id === l.rowId);
       return {
+        rowId: l.rowId,
+        code: row?.code || l.code,
+        description: row?.description || '',
+        batch: row?.batch || '',
+        qty: l.qty,
+        // Add any other fields you need (e.g., unit, expiry)
+      };
+    });
+
+    // Insert a new picking list draft
+    const { data: newOp, error } = await supabase
+      .from("picking_lists")
+      .insert({
+        type,
+        pl_number: plNumber,
+        to_project: toProject || null,
+        forecast_id: forecastId || null,
+        lines: pickLines,
+        status: 'draft',
+        created_by: getUserName(),
+        created_at: new Date().toISOString(),
+      })
+      .select()
+      .single();
+
+    if (error) {
+      showToast("Failed to create draft: " + error.message, "err");
+      return null;
+    }
+
+    setPendingOps(prev => [newOp, ...prev]);
+    return newOp;
+  }
+
+  // ---------- Render ----------
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading stockyard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  const renderContent = () => {
+    switch (tab) {
+      case "dashboard":
+        return <Dashboard rows={rows} movements={movements} itemSettings={itemSettings} />;
+      case "codemaster":
+        return <CodeMaster itemMaster={itemMaster} setItemMaster={setItemMaster} />;
+      case "receipt":
+        return (
+          <LineItemGrid
+            rows={rows}
+            itemMaster={itemMaster}
+            mode="receipt"
+            onReceipt={doReceipt}
+            showToast={showToast}
+          />
+        );
+      case "transfer":
+        return (
+          <LineItemGrid
+            rows={rows}
+            itemMaster={itemMaster}
+            mode="transfer"
+            onMove={doMove}
+            showToast={showToast}
+            projects={PROJECT_SITES}
+          />
+        );
+      case "issue":
+        return (
+          <LineItemGrid
+            rows={rows}
+            itemMaster={itemMaster}
+            mode="issue"
+            onMove={doMove}
+            showToast={showToast}
+          />
+        );
+      case "stock":
+        return <StockBrowser rows={rows} itemMaster={itemMaster} />;
+      case "bbd":
+        return <BBDReport rows={rows} />;
+      case "picking":
+        return <PickingLists rows={rows} pendingOps={pendingOps} setPendingOps={setPendingOps} onMove={doMove} showToast={showToast} />;
+      case "stocktake":
+        return <StockTake rows={rows} setRows={setRows} stockTakes={stockTakes} setStockTakes={setStockTakes} showToast={showToast} />;
+      case "forecast":
+        return <Forecast rows={rows} movements={movements} itemMaster={itemMaster} consumptionRecords={consumptionRecords} pendingAdjustments={pendingAdjustments} forecasts={forecasts} setForecasts={setForecasts} showToast={showToast} />;
+      case "log":
+        return <MovementLog movements={movements} rows={rows} deleteMovement={deleteMovement} />;
+      case "import":
+        return <ImportPanel onImportComplete={fetchInitialData} showToast={showToast} />;
+      default:
+        return <div>Unknown tab</div>;
+    }
+  };
+
+  return (
+    <div className="flex min-h-screen bg-gray-50">
+      {/* Sidebar */}
+      <aside className="w-64 bg-white border-r border-gray-200 p-4 flex-shrink-0">
+        <div className="text-2xl font-bold mb-6" style={{ fontFamily: "'Oswald', sans-serif" }}>
+          STOCKYARD
+        </div>
+        <nav className="space-y-1">
+          {NAV.map((item) => {
+            const Icon = item.icon;
+            return (
+              <button
+                key={item.id}
+                onClick={() => setTab(item.id)}
+                className={`flex items-center gap-3 w-full px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  tab === item.id
+                    ? "bg-blue-50 text-blue-700"
+                    : "text-gray-700 hover:bg-gray-100"
+                }`}
+              >
+                <Icon size={18} />
+                {item.label}
+              </button>
+            );
+          })}
+        </nav>
+      </aside>
+
+      {/* Main content */}
+      <main className="flex-1 p-6 overflow-y-auto">
+        {renderContent()}
+      </main>
+
+      {/* Toast notifications */}
+      {toast && <Toast message={toast.msg} tone={toast.tone} />}
+    </div>
+  );
+}
