@@ -1,3 +1,10 @@
+import "../styles/globals.css";
+
+function MyApp({ Component, pageProps }) {
+  return <Component {...pageProps} />;
+}
+
+export default MyApp;
 // Add these imports at the top (if not already there)
 import { useEffect, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
