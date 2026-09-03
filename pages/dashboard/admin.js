@@ -12,7 +12,12 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(null);
   const [showModal, setShowModal] = useState(false);
-  const [newUser, setNewUser] = useState({ username: '', full_name: '', password: '', role: 'staff' });
+  const [newUser, setNewUser] = useState({ 
+    username: '', 
+    full_name: '', 
+    password: '', 
+    role: 'staff' 
+  });
   const [creating, setCreating] = useState(false);
   const router = useRouter();
 
@@ -150,7 +155,7 @@ export default function AdminPage() {
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="flex items-center">
                     <div className="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 font-semibold">
-                      {user.full_name.charAt(0).toUpperCase()}
+                      {user.full_name?.charAt(0).toUpperCase() || '?'}
                     </div>
                     <div className="ml-3">
                       <div className="text-sm font-medium text-gray-900">{user.full_name}</div>
