@@ -1,25 +1,65 @@
-import { useEffect, useState } from "react";
-import { useRouter } from "next/router";
-import "../styles/globals.css";
+// Add these imports at the top (if not already there)
+import { useEffect, useState } from 'react';
+import { createClient } from '@supabase/supabase-js';
+import Link from 'next/link';
+import { useRouter } from 'next/router';
 
-export default function App({ Component, pageProps }) {
+// Inside your MyApp component, add this:
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+);
+
+function MyApp({ Component, pageProps }) {
+  const [isAdmin, setIsAdmin] = useState(false);
   const router = useRouter();
-  const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    if (router.pathname === "/login") {
-      setReady(true);
-      return;
-    }
-    const unlocked = typeof window !== "undefined" && localStorage.getItem("stockyard_unlocked") === "true";
-    const hasName = typeof window !== "undefined" && !!localStorage.getItem("stockyard_user_name");
-    if (!unlocked || !hasName) {
-      router.replace("/login");
-    } else {
-      setReady(true);
-    }
+    const checkAdmin = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', session.user.id)
+          .single();
+        setIsAdmin(profile?.role === 'admin');
+      }
+    };
+    checkAdmin();
   }, [router.pathname]);
 
-  if (!ready) return null;
-  return <Component {...pageProps} />;
+  // Now in your sidebar/navigation JSX, add:
+  return (
+    <>
+      {/* Your existing layout */}
+      <div className="flex">
+        {/* Sidebar */}
+        <nav className="w-64 bg-gray-100 min-h-screen p-4">
+          {/* Your existing navigation links */}
+          <Link href="/" className="block py-2 px-4 hover:bg-gray-200 rounded">
+            📊 Dashboard
+          </Link>
+          {/* ... other links ... */}
+
+          {/* Admin Panel link - only show if admin */}
+          {isAdmin && (
+            <Link 
+              href="/dashboard/admin" 
+              className="block py-2 px-4 hover:bg-gray-200 rounded mt-4 border-t border-gray-300 pt-4"
+            >
+              ⚙️ Admin Panel
+            </Link>
+          )}
+        </nav>
+
+        {/* Main content */}
+        <main className="flex-1 p-6">
+          <Component {...pageProps} />
+        </main>
+      </div>
+    </>
+  );
 }
+
+export default MyApp;
