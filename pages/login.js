@@ -2,7 +2,6 @@ import { useState } from "react";
 import { useRouter } from "next/router";
 import { createClient } from "@supabase/supabase-js";
 
-// Initialize Supabase client (uses your environment variables)
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
@@ -11,19 +10,22 @@ export default function Login() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
   const router = useRouter();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
+    setLoading(true);
 
     if (!username.trim()) {
       setError("Please enter your username.");
+      setLoading(false);
       return;
     }
 
     try {
-      // 1. Look up the profile by username to get the internal email
+      // 1. Look up the profile by username
       const { data: profile, error: lookupError } = await supabase
         .from("profiles")
         .select("username")
@@ -32,13 +34,14 @@ export default function Login() {
 
       if (lookupError || !profile) {
         setError("Username not found.");
+        setLoading(false);
         return;
       }
 
-      // 2. Construct the internal email (same format used when creating users)
+      // 2. Construct the internal email
       const internalEmail = `${username.trim()}@stockyard.local`;
 
-      // 3. Sign in with Supabase Auth using email + password
+      // 3. Sign in with Supabase Auth
       const { data, error: signInError } = await supabase.auth.signInWithPassword({
         email: internalEmail,
         password: password,
@@ -46,15 +49,15 @@ export default function Login() {
 
       if (signInError) {
         setError("Invalid username or password.");
+        setLoading(false);
         return;
       }
 
-      // 4. Successful login – store session info (same as before)
+      // 4. Successful login
       localStorage.setItem("stockyard_unlocked", "true");
       localStorage.setItem("stockyard_user_name", username.trim());
 
-      // Optional: also store the user's role if you want (for future use)
-      // You can fetch the role from the profile after login
+      // Store role if needed
       const { data: userProfile } = await supabase
         .from("profiles")
         .select("role")
@@ -67,6 +70,7 @@ export default function Login() {
       router.push("/");
     } catch (err) {
       setError("Something went wrong. Please try again.");
+      setLoading(false);
     }
   };
 
@@ -98,6 +102,7 @@ export default function Login() {
           placeholder="Your username"
           value={username}
           onChange={(e) => setUsername(e.target.value)}
+          disabled={loading}
         />
 
         <input
@@ -107,6 +112,7 @@ export default function Login() {
           placeholder="Password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
+          disabled={loading}
         />
 
         {error && (
@@ -117,10 +123,11 @@ export default function Login() {
 
         <button
           type="submit"
-          className="w-full rounded-md py-2.5 font-semibold text-sm"
+          disabled={loading}
+          className="w-full rounded-md py-2.5 font-semibold text-sm disabled:opacity-50"
           style={{ backgroundColor: "#3A5A6D", color: "#FFFFFF" }}
         >
-          Enter
+          {loading ? "Logging in..." : "Enter"}
         </button>
       </form>
     </div>
