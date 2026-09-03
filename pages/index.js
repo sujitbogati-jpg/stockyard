@@ -205,7 +205,7 @@ export default function Home() {
     showToast("Entry deleted and stock reversed");
   }
 
-  // ---------- CORRECTED createDraftOp (fixed syntax) ----------
+  // ---------- Fixed createDraftOp ----------
   async function createDraftOp(type, lines, toProject, forecastId) {
     const { data: plData } = await supabase.rpc("next_pl_number");
     const plNumber = plData || `PL/${pendingOps.length + 1}`;
@@ -218,11 +218,10 @@ export default function Home() {
         description: row?.description || '',
         batch: row?.batch || '',
         qty: l.qty,
-        // Add any other fields you need (e.g., unit, expiry)
+        // add any other fields needed
       };
     });
 
-    // Insert a new picking list draft
     const { data: newOp, error } = await supabase
       .from("picking_lists")
       .insert({
